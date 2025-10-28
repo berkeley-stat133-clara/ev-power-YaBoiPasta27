@@ -20,34 +20,42 @@ You are given a messy dataset of energy sources with inconsistent units and spac
 
 ```{r}
 energy_sources <- c("Solar (MWh)", "Wind (GWh)", "Coal (MWh)", "Hydro (kWh)")
+energy_sources
 ```
 
 a.  Use str_detect() to identify all energy sources that contain the substring "Wind" or "Hydro" (hint: use the \| operator in regex).
 
 ```{r}
-
+library(ggplot2)
+library(tidyverse)
+energy_sources[str_detect(energy_sources, pattern = "(Wind)|(Hydro)")]
 ```
 
 b.  Extract the unit type (e.g., MWh, GWh, kWh) using str_extract(). Make sure your pattern handles extra spaces or hyphens.
 
 ```{r}
-
+units <- str_extract(energy_sources, "(?<=\\().*?(?=\\))")
+energy_sources
 ```
 
 c.  Clean the names to keep only the energy source name, trimming whitespace and removing parentheses.
 
 ```{r}
-
+sources <- str_remove(energy_sources, "\\s*\\(.*\\)") |> str_trim()
 ```
 
 d.  Create a clean tibble called energy_clean with two columns: source and unit.
 
 ```{r}
-
+ energy_clean <- tibble(
+  "source" = sources,
+  "unit" = units
+ )
+ energy_clean
 ```
 
 e.  Discussion: Why might regex cleaning be important before performing joins or aggregations?\
-    \
+    This significantly cleans up the data for further use, esp for labelling and titling in a consistent way. It eliminates extraneous chracters and such as the () and organizes the information in a much more usable manner.
 
 #### Q2. State Datasets: Joins and Pivots
 
@@ -65,39 +73,49 @@ states$state <- rownames(states)
 
 # select and reorder columns
 states <- states |>
-  select(state, Income, Population, Illiteracy)
+  select(state, Income, Population, Illiteracy, Life.Exp)
 # table for regions
 regions <- data.frame(state = state.name, region = state.region)
 
-states
+
 
 ```
 
 a.  Perform a left join to combine socioeconomic and regional data.
 
 ```{r}
-
+combined_left <- left_join(states, regions)
+combined_left
 ```
 
 b.  Perform an inner join. How many rows remain, and why is it the same or different?
 
 ```{r}
-
+combined_inner <- inner_join(states, regions)
+combined_inner
+#there isn't a difference, both are 50 
 ```
 
 
 c.  Perform an anti join to check if any state names don’t match between datasets. What might cause mismatches like this in real projects?
 
 ```{r}
-
+combined_anti <- anti_join(states, regions)
+combined_anti
+#0, all states match, spelling errors or weird formatting
 ```
 
 d.  Discussion: Why would you prefer a left join over an inner join when merging state-level datasets?\
-    \
+    if the left dataset has all of the states then it's preserved, regardless of missing data in the right dataset. inner join would import the errors present in the right dataset
 e. Use pivot_longer() to make the socioeconomic data longer.\
 
 ```{r}
-
+combined_left <- pivot_longer(combined_left,
+    cols = c(Income, Population, Illiteracy, Life.Exp),
+    names_to = "variable",
+    values_to = "value"
+  )
+combined_left
 ```
 
 #### Q2.5.
@@ -121,19 +139,26 @@ sales
 a. Convert the dataset from wide (one column per month) to long (one row per month per store).
 
 ```{r}
-
+ sales_long <- pivot_longer(sales, 
+    cols = c(Jan_Sales, Feb_Sales, Mar_Sales),
+    names_to = "Month",
+    values_to = "Sales"
+  )
+  sales_long
 ```
 
 b. Clean month names by removing _Sales.
 
 ```{r}
-
+sales_long <- mutate(sales_long, Month = str_remove(Month, pattern = "_Sales"))
+sales_long
 ```
 
 c. Convert the long dataset back to wide, with one column per month.
 
 ```{r}
-
+sales_wide = pivot_wider(sales_long, names_from = "Store", values_from = "Sales")
+sales_wide
 ```
 
 #### Q3. Mapping
@@ -151,12 +176,14 @@ state_data <- states |>
   left_join(regions, by = "state") |>
   mutate(state = tolower(state))
 
+us_map
 ```
 
 Use a join to combine the us_map with the state_data
 
 ```{r}
-us_map_joined <- ...
+us_map_joined <- left_join(state_data, us_map, join_by(state == region))
+us_map_joined
 ```
 
 Create a chloropleth map:
@@ -170,10 +197,15 @@ ggplot(us_map_joined, aes(long, lat, group = group, fill = Income)) +
   labs(title = "Average Income by State")
 ```
 
-b.  Swap Income for Life Exp to visualize life expectancy instead. Try changing the color scale using scale_fill_gradient() or scale_fill_gradient2()
+b.  Swap Income for Life expectancy to visualize life expectancy instead. Try changing the color scale using scale_fill_gradient() or scale_fill_gradient2()
 
 ```{r}
-
+ggplot(us_map_joined, aes(long, lat, group = group, fill = Life.Exp)) +
+  geom_polygon(color = "white") +
+  coord_fixed(1.3) +
+  theme_minimal() +
+  scale_fill_viridis_c() +
+  labs(title = "Average Life Expectancy by State")
 ```
 
 #### Q4. Quarto Dashboard Setup

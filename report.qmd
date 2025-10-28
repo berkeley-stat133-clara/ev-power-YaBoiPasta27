@@ -16,7 +16,7 @@ library(maps)
 
 ## **Part 1:** **Defining Research Question**
 
-Chosen Question: Which states are doing a better job transitioning to renewable energy sources?
+Chosen Question: Which states are doing a better job transitioning to renewable energy sources and shifting their dominant energy source to renewables?
 
 ## **Part 2: Data Preparation and Cleaning**
 

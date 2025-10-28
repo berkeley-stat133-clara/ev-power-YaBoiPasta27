@@ -8,27 +8,224 @@ format: typst
 ## **Part 0: libraries**
 
 ```{r}
-
+library(ggplot2)
+library(tidyverse)
+library(dplyr)
+library(maps)
 ```
 
 ## **Part 1:** **Defining Research Question**
 
-Chosen Question:
+Chosen Question: Which states are doing a better job transitioning to renewable energy sources?
 
 ## **Part 2: Data Preparation and Cleaning**
 
 ```{r}
-
+    state_lookup <- data.frame(State = state.name, abbreviation = state.abb)
+    states <- data.frame(state.x77)
+    states$State <- rownames(states)
+    states <- states |>
+        inner_join(y = state_lookup) |>
+        rename("Code" = abbreviation)
+    renewableuseraw <- read_csv("ev-power-YaBoiPasta27-main copy/data/renew-use-2023.csv")
+    renewableuse23 <- renewableuseraw |>
+        mutate(Renewable_Use_2023 = str_remove_all(Renewable_Use_2023, pattern = "[^0-9.]"))|>
+        mutate(Renewable_Use_2023 = as.numeric(Renewable_Use_2023)) |>
+        pivot_wider(
+            names_from = Energy_Source,
+            values_from = Renewable_Use_2023,
+            values_fill = 0
+            )
+    renewableuseraw <- read_csv("ev-power-YaBoiPasta27-main copy/data/renew-use-2022.csv")
+    renewableuse22 <- renewableuseraw |>
+        mutate(Renewable_Use_2022 = str_remove_all(Renewable_Use_2022, pattern = "[^0-9.]")) |>
+        mutate(Renewable_Use_2022 = as.numeric(Renewable_Use_2022)) |>
+        pivot_wider(
+            names_from = Energy_Source,
+            values_from = Renewable_Use_2022,
+            values_fill = 0
+            )
+    renewableuseraw <- read_csv("ev-power-YaBoiPasta27-main copy/data/renew-use-2021.csv")
+    renewableuse21 <- renewableuseraw |>
+        mutate(Renewable_Use_2021 = str_remove_all(Renewable_Use_2021, pattern = "[^0-9.]")) |>
+        mutate(Renewable_Use_2021 = as.numeric(Renewable_Use_2021)) |>
+        pivot_wider(
+            names_from = Energy_Source,
+            values_from = Renewable_Use_2021,
+            values_fill = 0
+            )
+    head(renewableuse23)
+    head(renewableuse22)
+    head(renewableuse21)
 ```
 
-## **Part 3: Joining / Pivoting Datasets for Analysis**
-
 ```{r}
+totaluseraw <- read_csv("ev-power-YaBoiPasta27-main copy/data/total-use-2023.csv")
+    totaluse23 <- totaluseraw |>
+        pivot_longer(
+            cols = -Energy_Source,
+            names_to = "State",
+            values_to = "Usage"
+        ) |>
+        mutate(
+            Energy_Source = Energy_Source |>
+            tolower() |>
+            str_remove_all("[^a-z0-9 _-]") |> # Remove special characters
+            str_replace_all("[ -]", "_") |>   # Convert spaces/hyphens to snake_case
+            str_trim()
+        ) |>
+        pivot_wider(
+            names_from = Energy_Source,
+            values_from = Usage,
+            values_fill = 0
+        ) |>
+        mutate("total" = coal_usage + naturalgas + petroleum_btu + nuclear_energy_ + total_renewable_energy) |>
+        rename("coal" = coal_usage, "petroleum" = petroleum_btu, "nuclear" = nuclear_energy_, "renewable" = total_renewable_energy) |>
+        mutate("2023" = renewable/total)
+    totaluseraw <- read_csv("ev-power-YaBoiPasta27-main copy/data/total-use-2022.csv")
+    totaluse22 <- totaluseraw |>
+        pivot_longer(
+            cols = -Energy_Source,
+            names_to = "State",
+            values_to = "Usage"
+        ) |>
+        mutate(
+            Energy_Source = Energy_Source |>
+            tolower() |>
+            str_remove_all("[^a-z0-9 _-]") |> # Remove special characters
+            str_replace_all("[ -]", "_") |>   # Convert spaces/hyphens to snake_case
+            str_trim()
+        ) |>
+        pivot_wider(
+            names_from = Energy_Source,
+            values_from = Usage,
+            values_fill = 0
+        ) |>
+        rename("coal" = coal_consumption, "naturalgas" = natural_gas, "petroleum" = petroleum_btu, "nuclear" = nuclear_energy, "renewable" = total_renewables) |>
+        mutate("total" = coal + naturalgas + petroleum + nuclear + renewable) |>
+        mutate("2022" = renewable/total)
+    totaluseraw <- read_csv("ev-power-YaBoiPasta27-main copy/data/total-use-2021.csv")
+    totaluse21 <- totaluseraw |>
+        pivot_longer(
+            cols = -Energy_Source,
+            names_to = "State",
+            values_to = "Usage"
+        ) |>
+        mutate(
+            Energy_Source = Energy_Source |>
+            tolower() |>
+            str_remove_all("[^a-z0-9 _-]") |> # Remove special characters
+            str_replace_all("[ -]", "_") |>   # Convert spaces/hyphens to snake_case
+            str_trim()
+        ) |>
+        pivot_wider(
+            names_from = Energy_Source,
+            values_from = Usage,
+            values_fill = 0
+        ) |>
+        rename("naturalgas" = natural_gas, "petroleum" = petroleum_btu, "renewable" = total_renewable_energy) |>
+        mutate("total" = coal + naturalgas + petroleum + nuclear + renewable) |>
+        mutate("2021" = renewable/total)
+    dom23 <- totaluse23 |>
+        select(State, coal, naturalgas, petroleum, nuclear, renewable) |>
+        pivot_longer(
+            cols = -State, 
+            names_to = "Dominant",
+            values_to = "Usage"
+        ) |>
+        group_by(State) |>
+        slice_max(Usage, n = 1, with_ties = FALSE) |>
+        ungroup() |>
+        left_join(y = states, by = join_by("State" == "Code")) |>
+        select(`State.y`, `State`, Dominant) |>
+        mutate(`State.y` = tolower(`State.y`))
 
+    dom21 <- totaluse21 |>
+        select(State, coal, naturalgas, petroleum, nuclear, renewable) |>
+        pivot_longer(
+            cols = -State, 
+            names_to = "Dominant",
+            values_to = "Usage"
+        ) |>
+        group_by(State) |>
+        slice_max(Usage, n = 1, with_ties = FALSE) |>
+        ungroup() |>
+        left_join(y = states, by = join_by("State" == "Code")) |>
+        select(`State.y`, `State`, Dominant) |>
+        mutate(`State.y` = tolower(`State.y`))
+    head(dom21)
+```
+## **Part 3: Joining / Pivoting Datasets for Analysis**
+```{r}
+renewable23 <- select(totaluse23, c("State", "2023"))
+renewable22 <- select(totaluse22, c("State", "2022"))
+renewable21 <- select(totaluse21, c("State", "2021"))
+combined <- renewable23 |>
+    inner_join(y= renewable21) |>
+    inner_join(y = renewable22) |>
+    mutate("delta" = `2023` - `2021`) |>
+    left_join(y = states, by = join_by("State" == "Code")) |>
+    rename("Code" = State, "State" = `State.y`) |>
+    select(Code, State, `2021`, `2022`, `2023`, delta, Area) |>
+    mutate(State = tolower(State))
+us_map <- map_data("state")
+plotmap <- left_join(x = us_map, y = combined, by = join_by("region" == "State"))
+
+dominantsource23 <- left_join(x = us_map, y = dom23, by = join_by("region" == "State.y"))
+
+dominantsource21 <- left_join(x = us_map, y = dom21, by = join_by("region" == "State.y"))
+head(dominantsource21)
 ```
 
 ## **Part 4: Mapping Visualization**
 
 ```{r}
+ggplot(plotmap, aes(long, lat, group = group, fill = delta)) +
+  geom_polygon(color = "gray80", linewidth = 0.1) +
+  coord_fixed(1.3) +
+  theme_minimal() +
+  scale_fill_gradient2(
+    low = "red",
+    mid = "white",
+    high = "green",
+    midpoint = 0,
+    name = "Change in % \n(2023 vs 2021)"
+  ) +
+  labs(
+    title = "Change in % of Total Energy generated by Renewables by State",
+    caption = "Positive Change (Green) vs. Negative Change (Red)"
+  ) +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    legend.position = "right"
+  )
+```
 
+```{r}
+ggplot(dominantsource23, aes(long, lat, group = group, fill = Dominant)) +
+  geom_polygon(color = "gray80", linewidth = 0.1) +
+  coord_fixed(1.3) +
+  theme_minimal() +
+  labs(
+    title = "Primary Energy Source of a State in 2023",
+    caption = "Positive Change (Green) vs. Negative Change (Red)"
+  ) +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    legend.position = "right"
+  )
+```
+```{r}
+ggplot(dominantsource21, aes(long, lat, group = group, fill = Dominant)) +
+  geom_polygon(color = "gray80", linewidth = 0.1) +
+  coord_fixed(1.3) +
+  theme_minimal() +
+  labs(
+    title = "Primary Energy Source of a State in 2021",
+    caption = "Positive Change (Green) vs. Negative Change (Red)"
+  ) +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    legend.position = "right"
+  )
 ```
